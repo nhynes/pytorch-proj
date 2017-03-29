@@ -139,7 +139,7 @@ def val(i):
     net.eval()
     val_loss = 0
     c1 = c5 = n_tgt = 0
-    for batch_idx,cpu_inputs in enumerate(train_loader, 1):
+    for batch_idx,cpu_inputs in enumerate(val_loader, 1):
         for k,v in inputs.items():
             ct = cpu_inputs[k]
             v.data.resize_(ct.size()).copy_(ct)
@@ -155,7 +155,7 @@ def val(i):
 
     a1 = c1 / n_tgt * 100
     a5 = c5 / n_tgt * 100
-    val_loss = val_loss / len(train_loader)
+    val_loss = val_loss / len(val_loader)
 
     disp_str = f'[{i}] (VAL) | loss: {val_loss:.5f}   acc@1: {a1:.1f}   acc@5: {a5:.1f}'
     print(disp_str)
