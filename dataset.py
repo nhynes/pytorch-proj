@@ -8,7 +8,7 @@ import torch.utils.data as data
 import torchvision.transforms as transforms
 
 class Dataset(data.Dataset):
-    def __init__(self, dataset, val=False, **kwargs):
+    def __init__(self, dataset, part='train', **kwargs):
         super(Dataset, self).__init__()
 
         with open(dataset, 'rb') as f_ds:
