@@ -49,6 +49,9 @@ args = parser.parse_args()
 for rundir in ['snaps']:
     os.makedirs(f'run/{rundir}', exist_ok=True)
 
+with open('run/pid', 'w') as f_pid:
+    print(os.getpid(), file=f_pid)
+
 resuming = args.resume and os.path.isfile(f'run/snaps/model_{args.resume}.pth')
 opts_path = 'run/opts.pkl'
 if resuming:
@@ -183,9 +186,12 @@ signal.signal(signal.SIGUSR1, lambda signum,stack: tasks.append((snap, 'usr')))
 signal.signal(signal.SIGUSR2, lambda signum,stack: tasks.append((val, 'usr')))
 signal.signal(signal.SIGTRAP, lambda signum,stack: tasks.append((dofile,)))
 
-for i in range(1, args.epochs + 1):
-    train(i)
-    val(i)
-    do_tasks()
-    snap(i)
-    do_tasks()
+try:
+    for i in range(1, args.epochs + 1):
+        train(i)
+        val(i)
+        do_tasks()
+        snap(i)
+        do_tasks()
+except KeyboardInterrupt:
+    os.unlink('run/pid')
