@@ -4,8 +4,6 @@ if __name__ != '__main__':
 import argparse
 import os
 import pickle
-import signal
-import traceback
 
 import torch
 import torch.nn as nn
@@ -19,15 +17,16 @@ import model
 
 #===============================================================================
 parser = argparse.ArgumentParser()
-# general
 parser.add_argument('model', help='epoch')
+parser.add_argument('--batch-size', default=1024, type=int)
 args = parser.parse_args()
 #===============================================================================
 
-model = args.model
 with open('run/opts.pkl', 'rb') as f_opts:
-    args = pickle.load(f_opts)
-setattr(args, 'model', model)
+    orig_args = pickle.load(f_opts)
+    for k,v in vars(args).items():
+        setattr(orig_args, k, v)
+args = orig_args
 
 n_gpu = torch.cuda.device_count()
 setattr(args, 'batch_size', int(args.batch_size / n_gpu) * n_gpu)
@@ -39,18 +38,19 @@ varargs = vars(args)
 
 #===============================================================================
 
-ds_test = dataset.create(val=True, **varargs)
+ds_test = dataset.create(part='test', **varargs)
 
 loader_opts = {'batch_size': args.batch_size, 'shuffle': True,
                'pin_memory': True, 'num_workers': args.nworkers}
 test_loader = torch.utils.data.DataLoader(ds_test, **loader_opts)
 
 net = model.create(**varargs)
+net.load_state_dict(torch.load(f'run/snaps/model_{args.model}.pth'))
+
 inputs = {k: Variable(inp.cuda()) for k,inp in net.create_inputs().items()}
+
 if n_gpu > 1:
     net = nn.DataParallel(net)
-
-net.load_state_dict(torch.load(f'run/snaps/model_{args.model}.pth'))
 net = net.cuda()
 
 net.eval()
