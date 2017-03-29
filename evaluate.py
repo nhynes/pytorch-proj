@@ -24,7 +24,7 @@ args = parser.parse_args()
 
 with open('run/opts.pkl', 'rb') as f_opts:
     orig_args = pickle.load(f_opts)
-    for k,v in vars(args).items():
+    for k, v in vars(args).items():
         setattr(orig_args, k, v)
 args = orig_args
 
@@ -47,15 +47,15 @@ test_loader = torch.utils.data.DataLoader(ds_test, **loader_opts)
 net = model.create(**varargs)
 net.load_state_dict(torch.load(f'run/snaps/model_{args.model}.pth'))
 
-inputs = {k: Variable(inp.cuda()) for k,inp in net.create_inputs().items()}
+inputs = {k: Variable(inp.cuda()) for k, inp in net.create_inputs().items()}
 
 if n_gpu > 1:
     net = nn.DataParallel(net)
 net = net.cuda()
 
 net.eval()
-for batch_idx,cpu_inputs in enumerate(test_loader, 1):
-    for k,v in inputs.items():
+for batch_idx, cpu_inputs in enumerate(test_loader, 1):
+    for k, v in inputs.items():
         ct = cpu_inputs[k]
         v.data.resize_(ct.size()).copy_(ct)
         v.volatile = True

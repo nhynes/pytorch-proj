@@ -85,7 +85,7 @@ train_loader = torch.utils.data.DataLoader(ds_train, **loader_opts)
 val_loader = torch.utils.data.DataLoader(ds_val, **loader_opts)
 
 net = model.create(**varargs)
-inputs = {k: Variable(inp.cuda()) for k,inp in net.create_inputs().items()}
+inputs = {k: Variable(inp.cuda()) for k, inp in net.create_inputs().items()}
 
 optimizer = optim.Adam(net.parameters(), lr=args.lr)
 
@@ -118,19 +118,19 @@ def do_tasks():
                 traceback.print_exc()
 
 def train(i):
-    for batch_idx,cpu_inputs in enumerate(train_loader, 1):
+    for batch_idx, cpu_inputs in enumerate(train_loader, 1):
         net.train()
 
         should_disp = args.dispfreq > 0 and \
                 (batch_idx % args.dispfreq == 0 or batch_idx == len(train_loader))
 
-        for k,v in inputs.items():
+        for k, v in inputs.items():
             ct = cpu_inputs[k]
             v.data.resize_(ct.size()).copy_(ct)
 
         optimizer.zero_grad()
 
-        loss,output = net(**inputs)
+        loss, output = net(**inputs)
         loss.backward()
 
         optimizer.step()
@@ -145,13 +145,13 @@ def train(i):
 def val(i):
     net.eval()
     val_loss = 0
-    for batch_idx,cpu_inputs in enumerate(val_loader, 1):
-        for k,v in inputs.items():
+    for batch_idx, cpu_inputs in enumerate(val_loader, 1):
+        for k, v in inputs.items():
             ct = cpu_inputs[k]
             v.data.resize_(ct.size()).copy_(ct)
             v.volatile = True
 
-        loss,output = net(**inputs)
+        loss, output = net(**inputs)
         val_loss += loss.data[0] * len(probs) / args.batch_size
 
     val_loss = val_loss / len(val_loader)
