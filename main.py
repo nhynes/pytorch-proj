@@ -139,6 +139,8 @@ def train(i):
             loss = loss.data[0]
             disp_str = f'[{i}] ({batch_idx}/{len(train_loader)}) | loss: {loss:.5f}'
             print(disp_str)
+            with open('run/log.txt', 'a') as f_log:
+                print(disp_str, file=f_log)
 
         do_tasks()
 
@@ -158,6 +160,8 @@ def val(i):
 
     disp_str = f'[{i}] (VAL) | loss: {val_loss:.5f}'
     print(disp_str)
+    with open('run/log.txt', 'a') as f_log:
+        print(disp_str, file=f_log)
 
     for v in inputs.values():
         v.volatile = False
