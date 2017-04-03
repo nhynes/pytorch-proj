@@ -1,6 +1,3 @@
-if __name__ != '__main__':
-    exit()
-
 import argparse
 import os
 import pickle
@@ -16,10 +13,14 @@ from torch.autograd import Variable
 import dataset
 import model
 
-#===============================================================================
+if __name__ != '__main__':
+    exit()
+
+# =============================================================================
 parser = argparse.ArgumentParser()
 # general
 parser.add_argument('--seed', default=42, type=int)
+parser.add_argument('--debug', action='store_true')
 
 # data
 parser.add_argument('--dataset', default='data/dataset.pkl')
@@ -38,7 +39,7 @@ parser.add_argument('--resume', help='resume epoch')
 parser.add_argument('--dispfreq', default=100, type=int)
 
 args = parser.parse_args()
-#===============================================================================
+# =============================================================================
 
 for rundir in ['snaps']:
     os.makedirs(f'run/{rundir}', exist_ok=True)
@@ -46,7 +47,9 @@ for rundir in ['snaps']:
 os.mkfifo('run/ctl')
 ctl = os.open('run/ctl', flags=os.O_NONBLOCK)
 
-is_resuming = args.resume and os.path.isfile(f'run/snaps/model_{args.resume}.pth')
+msnap_path = 'run/snaps/model_%s.pth'
+osnap_path = f'run/snaps/optim_state_%s.pth'
+is_resuming = args.resume and os.path.isfile(msnap_path % args.resume)
 opts_path = 'run/opts.pkl'
 if is_resuming:
     with open(opts_path, 'rb') as f_orig_opts:
@@ -74,10 +77,10 @@ torch.cuda.manual_seed(args.seed)
 
 varargs = vars(args)
 
-#===============================================================================
+# =============================================================================
 
-ds_train = dataset.create(**varargs)
 ds_val = dataset.create(part='val', **varargs)
+ds_train = dataset.create(**varargs) if not args.debug else ds_val
 
 loader_opts = {'batch_size': args.batch_size, 'shuffle': True,
                'pin_memory': True, 'num_workers': args.nworkers}
@@ -90,13 +93,14 @@ inputs = {k: Variable(inp.cuda()) for k, inp in net.create_inputs().items()}
 optimizer = optim.Adam(net.parameters(), lr=args.lr)
 
 if is_resuming:
-    net.load_state_dict(torch.load(f'run/snaps/model_{args.resume}.pth'))
-    optimizer.load_state_dict(torch.load(f'run/snaps/optim_state_{args.resume}.pth'))
+    net.load_state_dict(torch.load(msnap_path % args.resume))
+    optimizer.load_state_dict(torch.load(osnap_path % args.resume))
     print(f'Resuming training from epoch {args.resume}')
 
 if n_gpu > 1:
     net = nn.DataParallel(net)
 net = net.cuda()
+
 
 def do_tasks():
     for cmdline in os.read(ctl, 2**10).decode('utf8').split('\n'):
@@ -117,38 +121,45 @@ def do_tasks():
             except:
                 traceback.print_exc()
 
-def train(i):
-    for batch_idx, cpu_inputs in enumerate(train_loader, 1):
+
+def train(e):
+    nb = len(train_loader)
+    for i, cpu_inputs in enumerate(train_loader, 1):
         net.train()
 
-        should_disp = args.dispfreq > 0 and \
-                (batch_idx % args.dispfreq == 0 or batch_idx == len(train_loader))
+        should_disp = args.dispfreq > 0 and (i % args.dispfreq == 0 or i == nb)
 
         for k, v in inputs.items():
+            if k not in cpu_inputs:
+                continue
             ct = cpu_inputs[k]
             v.data.resize_(ct.size()).copy_(ct)
 
         optimizer.zero_grad()
 
         loss, output = net(**inputs)
+        loss = loss.mean()  # multi-gpu
         loss.backward()
 
         optimizer.step()
 
         if should_disp:
             loss = loss.data[0]
-            disp_str = f'[{i}] ({batch_idx}/{len(train_loader)}) | loss: {loss:.5f}'
+            disp_str = f'[{e}] ({i}/{nb}) | loss: {loss:.5f}'
             print(disp_str)
             with open('run/log.txt', 'a') as f_log:
                 print(disp_str, file=f_log)
 
         do_tasks()
 
-def val(i):
+
+def val(e):
     net.eval()
     val_loss = 0
-    for batch_idx, cpu_inputs in enumerate(val_loader, 1):
+    for i, cpu_inputs in enumerate(val_loader, 1):
         for k, v in inputs.items():
+            if k not in cpu_inputs:
+                continue
             ct = cpu_inputs[k]
             v.data.resize_(ct.size()).copy_(ct)
             v.volatile = True
@@ -158,7 +169,7 @@ def val(i):
 
     val_loss = val_loss / len(val_loader)
 
-    disp_str = f'[{i}] (VAL) | loss: {val_loss:.5f}'
+    disp_str = f'[{e}] (VAL) | loss: {val_loss:.5f}'
     print(disp_str)
     with open('run/log.txt', 'a') as f_log:
         print(disp_str, file=f_log)
@@ -166,23 +177,25 @@ def val(i):
     for v in inputs.values():
         v.volatile = False
 
+
 def state2cpu(state):
     if isinstance(state, dict):
-        return type(state)(k: state2cpu(v) for k, v in state)
+        return type(state)({k: state2cpu(v) for k, v in state})
     elif torch.is_tensor(state):
         return state.cpu()
 
-def snap(i):
+
+def snap(e):
     net_mod = net.module if isinstance(net, nn.DataParallel) else net
-    torch.save(state2cpu(net_mod.state_dict()), f'run/snaps/model_{i}.pth')
-    torch.save(state2cpu(optimizer.state_dict()), f'run/snaps/optim_state_{i}.pth')
+    torch.save(state2cpu(net_mod.state_dict()), msnap_path % e)
+    torch.save(state2cpu(optimizer.state_dict()), osnap_path % e)
 
 try:
-    for i in range(1, args.epochs + 1):
-        train(i)
-        val(i)
+    for e in range(1, args.epochs + 1):
+        train(e)
+        val(e)
         do_tasks()
-        snap(i)
+        snap(e)
         do_tasks()
 except KeyboardInterrupt:
     pass
