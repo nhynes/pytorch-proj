@@ -44,8 +44,10 @@ args = parser.parse_args()
 for rundir in ['snaps']:
     os.makedirs(f'run/{rundir}', exist_ok=True)
 
-os.mkfifo('run/ctl')
-ctl = os.open('run/ctl', flags=os.O_NONBLOCK)
+f_ctl = 'run/ctl'
+if not os.path.exists(f_ctl):
+    os.mkfifo(f_ctl)
+ctl = os.open(f_ctl, flags=os.O_NONBLOCK)
 
 msnap_path = 'run/snaps/model_%s.pth'
 osnap_path = f'run/snaps/optim_state_%s.pth'
@@ -164,8 +166,8 @@ def val(e):
             v.data.resize_(ct.size()).copy_(ct)
             v.volatile = True
 
-        loss, output = net(**inputs)
-        val_loss += loss.data[0] * len(probs) / args.batch_size
+        loss = net(**inputs)
+        val_loss += loss.data[0]
 
     val_loss = val_loss / len(val_loader)
 
@@ -180,7 +182,7 @@ def val(e):
 
 def state2cpu(state):
     if isinstance(state, dict):
-        return type(state)({k: state2cpu(v) for k, v in state})
+        return type(state)({k: state2cpu(v) for k, v in state.items()})
     elif torch.is_tensor(state):
         return state.cpu()
 

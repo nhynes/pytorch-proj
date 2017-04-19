@@ -2,12 +2,13 @@ from collections import defaultdict
 import os
 import pickle
 
+from PIL import Image
 import numpy as np
 import torch
-import torch.utils.data as data
+import torch.utils.data
 import torchvision.transforms as transforms
 
-class Dataset(data.Dataset):
+class Dataset(torch.utils.data.Dataset):
     def __init__(self, dataset, part='train', **kwargs):
         super(Dataset, self).__init__()
 

@@ -11,7 +11,7 @@ class Model(nn.Module):
     def __init__(self, **kwargs):
         super(Model, self).__init__()
 
-    def forward(self, x):
+    def forward(self, x, **kwargs):
         return x
 
     @staticmethod
