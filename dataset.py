@@ -1,12 +1,8 @@
-from collections import defaultdict
-import os
 import pickle
 
-from PIL import Image
 import numpy as np
 import torch
 import torch.utils.data
-import torchvision.transforms as transforms
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, dataset, part='train', **kwargs):
@@ -31,7 +27,10 @@ if __name__ == '__main__':
     ds_opts = {
         'dataset': 'data/dataset.pkl',
     }
+
     ds_test = Dataset(**ds_opts)
+
     print(ds_test[0])
+
     for i in np.random.permutation(len(ds_test))[:10]:
         ds_test[i]

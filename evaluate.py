@@ -1,6 +1,3 @@
-if __name__ != '__main__':
-    exit()
-
 import argparse
 import os
 import pickle
@@ -14,6 +11,9 @@ from torch.autograd import Variable
 
 import dataset
 import model
+
+if __name__ != '__main__':
+    exit()
 
 #===============================================================================
 parser = argparse.ArgumentParser()

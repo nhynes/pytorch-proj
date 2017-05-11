@@ -150,7 +150,7 @@ def train(e):
             disp_str = f'[{e}] ({i}/{nb}) | loss: {loss:.5f}'
             print(disp_str)
             with open('run/log.txt', 'a') as f_log:
-                print(disp_str, file=f_log)
+                print(disp_str, file=f_log, flush=True)
 
         do_tasks()
 
@@ -167,14 +167,14 @@ def val(e):
             v.volatile = True
 
         loss = net(**inputs)
-        val_loss += loss.data[0]
+        val_loss += loss.mean().data[0]
 
     val_loss = val_loss / len(val_loader)
 
     disp_str = f'[{e}] (VAL) | loss: {val_loss:.5f}'
     print(disp_str)
     with open('run/log.txt', 'a') as f_log:
-        print(disp_str, file=f_log)
+        print(disp_str, file=f_log, flush=True)
 
     for v in inputs.values():
         v.volatile = False
@@ -190,7 +190,7 @@ def state2cpu(state):
 def snap(e):
     net_mod = net.module if isinstance(net, nn.DataParallel) else net
     torch.save(state2cpu(net_mod.state_dict()), msnap_path % e)
-    torch.save(state2cpu(optimizer.state_dict()), osnap_path % e)
+    torch.save(optimizer.state_dict(), osnap_path % e)
 
 try:
     for e in range(1, args.epochs + 1):

@@ -1,11 +1,8 @@
-import math
-
+import torch
 from torch import nn
 from torch.autograd import Variable
 from torch.nn.parameter import Parameter
-import torch
 import torch.nn.functional as nnf
-import torch.nn.init
 
 class Model(nn.Module):
     def __init__(self, **kwargs):
@@ -27,8 +24,9 @@ if __name__ == '__main__':
 
     net = Model(**opts)
 
-    x = Variable(torch.rand(1, 1))
+    inp = {
+        'x': Variable(torch.rand(1, 1))
+    }
 
-    output = net(x=x)
-
-    print(output)
+    loss = net(**inp)
+    loss.backward()
