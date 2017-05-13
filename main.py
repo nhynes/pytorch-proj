@@ -33,7 +33,7 @@ parser.add_argument('--emb-dim', default=256, type=int)
 # training
 parser.add_argument('--lr', default=0.001, type=float)
 parser.add_argument('--epochs', default=100, type=int)
-parser.add_argument('--resume', help='resume epoch')
+parser.add_argument('--resume', help='resume epoch', type=int)
 
 # output
 parser.add_argument('--dispfreq', default=100, type=int)
@@ -193,7 +193,7 @@ def snap(e):
     torch.save(optimizer.state_dict(), osnap_path % e)
 
 try:
-    for e in range(1, args.epochs + 1):
+    for e in range(args.resume + 1 if args.resume else 1, args.epochs + 1):
         train(e)
         val(e)
         do_tasks()
