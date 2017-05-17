@@ -9,6 +9,8 @@ import torch.optim as optim
 import torch.utils.data
 from torch.autograd import Variable
 
+import numpy as np
+
 import dataset
 import model
 
@@ -17,7 +19,7 @@ if __name__ != '__main__':
 
 #===============================================================================
 parser = argparse.ArgumentParser()
-parser.add_argument('model', help='epoch')
+parser.add_argument('epoch', type=int)
 parser.add_argument('--batch-size', default=1024, type=int)
 args = parser.parse_args()
 #===============================================================================
@@ -45,7 +47,7 @@ loader_opts = {'batch_size': args.batch_size, 'shuffle': True,
 test_loader = torch.utils.data.DataLoader(ds_test, **loader_opts)
 
 net = model.create(**varargs)
-net.load_state_dict(torch.load(f'run/snaps/model_{args.model}.pth'))
+net.load_state_dict(torch.load(f'run/snaps/model_{args.epoch}.pth'))
 
 inputs = {k: Variable(inp.cuda()) for k, inp in net.create_inputs().items()}
 
@@ -60,4 +62,5 @@ for batch_idx, cpu_inputs in enumerate(test_loader, 1):
         v.data.resize_(ct.size()).copy_(ct)
         v.volatile = True
 
+    net(**inputs)
     # evaluate
