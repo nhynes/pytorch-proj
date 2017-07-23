@@ -1,11 +1,18 @@
 import pickle
+import os
 
 import numpy as np
 import torch
 import torch.utils.data
 
+
+def unpickle(path):
+    with open(path, 'rb') as fp:
+        return pickle.load(fp)
+
+
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, dataset, part='train', **kwargs):
+    def __init__(self, dataset, part, **kwargs):
         super(Dataset, self).__init__()
 
         with open(dataset, 'rb') as f_ds:
@@ -26,9 +33,10 @@ def create(*args, **kwargs):
 if __name__ == '__main__':
     ds_opts = {
         'dataset': 'data/dataset.pkl',
+        'part': 'test',
     }
 
-    ds_test = Dataset(**ds_opts)
+    ds_test = create(**ds_opts)
 
     print(ds_test[0])
 

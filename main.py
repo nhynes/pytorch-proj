@@ -24,11 +24,11 @@ parser.add_argument('--debug', action='store_true')
 
 # data
 parser.add_argument('--dataset', default='data/dataset.pkl')
-parser.add_argument('--batch-size', default=64, type=int)
 parser.add_argument('--nworkers', default=4, type=int)
 
 # model
 parser.add_argument('--emb-dim', default=256, type=int)
+parser.add_argument('--batch-size', default=64, type=int)
 
 # training
 parser.add_argument('--lr', default=0.001, type=float)
@@ -39,8 +39,10 @@ parser.add_argument('--resume', help='resume epoch', type=int)
 parser.add_argument('--dispfreq', default=100, type=int)
 
 args = parser.parse_args()
-# =============================================================================
 
+for path_arg in ['dataset']:
+    setattr(args, path_arg, os.path.abspath(getattr(args, path_arg)))
+# =============================================================================
 for rundir in ['snaps']:
     os.makedirs(f'run/{rundir}', exist_ok=True)
 
@@ -65,9 +67,6 @@ if is_resuming:
         opts_path = f'run/opts_{i}.pkl'
         i += 1
 
-for path_arg in ['dataset']:
-    setattr(args, path_arg, os.path.abspath(getattr(args, path_arg)))
-
 n_gpu = torch.cuda.device_count()
 setattr(args, 'batch_size', int(args.batch_size / n_gpu) * n_gpu)
 
@@ -78,11 +77,10 @@ torch.manual_seed(args.seed)
 torch.cuda.manual_seed(args.seed)
 
 varargs = vars(args)
-
 # =============================================================================
 
 ds_val = dataset.create(part='val', **varargs)
-ds_train = dataset.create(**varargs) if not args.debug else ds_val
+ds_train = dataset.create(part='train', **varargs) if not args.debug else ds_val
 
 loader_opts = {'batch_size': args.batch_size, 'shuffle': True,
                'pin_memory': True, 'num_workers': args.nworkers}
@@ -139,7 +137,7 @@ def train(e):
 
         optimizer.zero_grad()
 
-        loss, output = net(**inputs)
+        loss = net(**inputs)
         loss = loss.mean()  # multi-gpu
         loss.backward()
 
