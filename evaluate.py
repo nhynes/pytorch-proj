@@ -1,66 +1,54 @@
 import argparse
-import os
 import pickle
 
-import torch
-import torch.nn as nn
-import torch.nn.functional as nnf
-import torch.optim as optim
-import torch.utils.data
-from torch.autograd import Variable
+from tqdm import tqdm
 
+import torch
 import numpy as np
 
-import dataset
-import model
+import common
 
-if __name__ != '__main__':
-    exit()
 
-#===============================================================================
-parser = argparse.ArgumentParser()
-parser.add_argument('epoch', type=int)
-parser.add_argument('--batch-size', default=1024, type=int)
-args = parser.parse_args()
-#===============================================================================
+def main(opts):
+    with open('run/opts.pkl', 'rb') as f_opts:
+        model_opts = pickle.load(f_opts)
+    model_opts.batch_size = opts.batch_size
+    model_opts.onelayer = opts.onelayer
 
-with open('run/opts.pkl', 'rb') as f_opts:
-    orig_args = pickle.load(f_opts)
-    for k, v in vars(args).items():
-        setattr(orig_args, k, v)
-args = orig_args
+    datasets = common.create_datasets(model_opts, partitions=['test'])
+    test_loader = common.create_loaders(model_opts, datasets)['test_loader']
 
-n_gpu = torch.cuda.device_count()
-setattr(args, 'batch_size', int(args.batch_size / n_gpu) * n_gpu)
+    net, inputs = common.create_model(model_opts)
+    net.load_state_dict(torch.load(common.MSNAP_PATH.format(opts.epoch)))
+    net.eval()
 
-torch.manual_seed(args.seed)
-torch.cuda.manual_seed(args.seed)
+    sz = (len(datasets['test']), model_opts.joint_emb_dim)
+    img_embs = np.empty(sz, dtype='float32')
+    instr_embs = np.empty(sz, dtype='float32')
 
-varargs = vars(args)
+    n = 0
+    for cpu_inputs in tqdm(test_loader):
+        common.copy_inputs(cpu_inputs, inputs, volatile=True)
 
-#===============================================================================
+        outputs = net(**inputs)
+        batch_img_embs, batch_instr_embs = outputs[-2:]
+        bsl = slice(n, n+len(batch_img_embs))
+        img_embs[bsl] = batch_img_embs.data.cpu().numpy()
+        instr_embs[bsl] = batch_instr_embs.data.cpu().numpy()
+        n += len(batch_img_embs)
 
-ds_test = dataset.create(part='test', **varargs)
+    out_suff = f'{opts.epoch}' + (f'_{opts.onelayer}' * bool(opts.onelayer))
+    np.save(f'run/instr_embs_{out_suff}.npy', instr_embs)
+    np.save(f'run/img_embs_{out_suff}.npy', img_embs)
 
-loader_opts = {'batch_size': args.batch_size, 'shuffle': True,
-               'pin_memory': True, 'num_workers': args.nworkers}
-test_loader = torch.utils.data.DataLoader(ds_test, **loader_opts)
 
-net = model.create(**varargs)
-net.load_state_dict(torch.load(f'run/snaps/model_{args.epoch}.pth'))
+if __name__ == '__main__':
+    # --------------------------------------------------------------------------
+    parser = argparse.ArgumentParser()
+    parser.add_argument('epoch', type=int)
+    parser.add_argument('--batch-size', default=512, type=int)
+    parser.add_argument('--onelayer', choices=('l2', 'l4'), default=False)
+    opts = parser.parse_args()
+    # --------------------------------------------------------------------------
 
-inputs = {k: Variable(inp.cuda()) for k, inp in net.create_inputs().items()}
-
-if n_gpu > 1:
-    net = nn.DataParallel(net)
-net = net.cuda()
-
-net.eval()
-for batch_idx, cpu_inputs in enumerate(test_loader, 1):
-    for k, v in inputs.items():
-        ct = cpu_inputs[k]
-        v.data.resize_(ct.size()).copy_(ct)
-        v.volatile = True
-
-    net(**inputs)
-    # evaluate
+    main(opts)
