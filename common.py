@@ -54,7 +54,6 @@ def create_datasets(opts, partitions=('train', 'val')):
     """Returns a mapping from the provided partitions to `Dataset`s."""
     part_datasets = {part: dataset.create(part=part, **vars(opts))
                      for part in partitions}
-    opts.n_topics = next(iter(part_datasets.values())).n_topics
     return part_datasets
 
 
@@ -72,7 +71,6 @@ def create_model(opts):
     """Returns a fresh instance of a model and its inputs."""
     net = model.create(**vars(opts))
     inputs = {k: Variable(inp.cuda()) for k, inp in net.create_inputs().items()}
-    inputs['epoch'] = 0
     if opts.n_gpu > 1:
         net = nn.DataParallel(net)
     net = net.cuda()

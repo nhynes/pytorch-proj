@@ -12,7 +12,18 @@ class Model(nn.Module):
         super(Model, self).__init__()
 
     def forward(self, inputs, **unused_kwargs):
-        return inputs.sum()
+        preds = {}
+        losses = {}
+        for var_name, var in locals().items():
+            if var_name.endswith('_loss'):
+                losses[var_name.replace('_loss', '')] = var
+            elif var_name.endswith('_preds'):
+                preds[var_name.replace('_preds', '')] = var
+
+        return {
+            'losses': losses,
+            'preds': preds,
+        }
 
     @staticmethod
     def create_inputs():

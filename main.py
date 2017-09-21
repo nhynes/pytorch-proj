@@ -1,5 +1,6 @@
 """Main training script for the model."""
 
+from collections import defaultdict
 from contextlib import contextmanager
 import argparse
 import os
@@ -12,8 +13,7 @@ import torch.nn as nn
 import common
 
 
-LOSS_NAMES = ['emb']
-LOSS_FMT = ' '.join(map('{}={{:.3f}}'.format, LOSS_NAMES))
+LOSS_FMT = '{}={:.3f}'
 TRAIN_FMT = '[{:d}] ({:d}/{:d}) | loss: {}'
 VAL_FMT = '[{:d}] (VAL) | loss: {}'
 
@@ -61,14 +61,16 @@ def _create_runners(opts, train_loader, val_loader):
 
             optimizer.zero_grad()
 
-            outputs = net(**inputs, ship_embs=False)
-            losses = [l.mean() for l in outputs[:3]]
-            sum(losses).backward()
+            outputs = net(**inputs)
+            losses = outputs['losses']
+            sum(map(torch.mean, losses.values()).backward()
 
             optimizer.step()
 
             if opts.dispfreq > 0 and (i % opts.dispfreq == 0 or i == n_train):
-                loss_str = LOSS_FMT.format(*[loss.data[0] for loss in losses])
+                loss_str = ' '.join(
+                    LOSS_FMT.format(loss_name, loss_val.data[0])
+                    for loss_name, loss_val in losses.items())
                 disp_str = TRAIN_FMT.format(epoch, i, n_train, loss_str)
                 print(disp_str)
                 print(disp_str, file=f_log, flush=True)
@@ -76,20 +78,21 @@ def _create_runners(opts, train_loader, val_loader):
             _do_tasks()
 
     def _val(epoch):
-        val_loss = torch.zeros(len(LOSS_NAMES))
+        val_loss = defaultdict(int)
         for i, cpu_inputs in enumerate(val_loader, 1):
             net.eval()
             common.copy_inputs(cpu_inputs, inputs, volatile=True)
 
             outputs = net(**inputs)
-            losses = torch.Tensor([l.mean().data[0] for l in outputs])
-            val_loss += losses
+            losses = outputs['losses']
+            for loss_name, loss_val in losses.items():
+                val_loss[loss_name] += loss_val.mean().data[0]
 
             _do_tasks()
 
         val_loss = val_loss / n_val
 
-        loss_str = LOSS_FMT.format(*val_loss)
+        loss_str = ' '.join(LOSS_FMT.format(*loss) for loss in val_loss.items())
         disp_str = VAL_FMT.format(epoch, loss_str)
         print(disp_str)
         print(disp_str, file=f_log, flush=True)
