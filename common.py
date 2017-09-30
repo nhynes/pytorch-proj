@@ -10,10 +10,6 @@ import torch.utils.data
 from torch.autograd import Variable
 
 
-import model
-import dataset
-
-
 MSNAP_PATH = 'run/snaps/model_{:d}.pth'
 CPU_MSNAP_PATH = 'run/snaps/model_{:d}_cpu.pth'
 OSNAP_PATH = 'run/snaps/optim_state_{:d}.pth'
@@ -52,6 +48,7 @@ def resume(opts):
 
 def create_datasets(opts, partitions=('train', 'val')):
     """Returns a mapping from the provided partitions to `Dataset`s."""
+    import dataset
     part_datasets = {part: dataset.create(part=part, **vars(opts))
                      for part in partitions}
     return part_datasets
@@ -69,6 +66,7 @@ def create_loaders(opts, datasets):
 
 def create_model(opts):
     """Returns a fresh instance of a model and its inputs."""
+    import model
     net = model.create(**vars(opts))
     inputs = {k: Variable(inp.cuda()) for k, inp in net.create_inputs().items()}
     if opts.n_gpu > 1:
@@ -100,3 +98,15 @@ def copy_inputs(cpu_inputs, inputs, volatile=False):
         inp.data.resize_(cpu_tensor.size()).copy_(cpu_tensor)
         if isinstance(inp, Variable):
             inp.volatile = volatile
+
+
+def unpickle(path_pkl):
+    """Loads the contents of a pickle file."""
+    with open(path_pkl, 'rb') as f_pkl:
+        return pickle.load(f_pkl)
+
+
+def load_txt(path_txt):
+    """Loads a text file."""
+    with open(path_txt) as f_txt:
+        return [line.rstrip() for line in f_txt]

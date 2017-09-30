@@ -42,8 +42,11 @@ def _create_runners(opts, train_loader, val_loader):
         net, inputs = common.create_model(opts)
         optimizer = common.create_optimizer(opts, net)
 
-    n_train = len(train_loader)
-    n_val = len(val_loader)
+    n_train_batches = len(train_loader)
+    n_val_batches = len(val_loader)
+    n_val = len(val_loader.dataset)
+
+    dispfreq = n_train_batches // opts.dispfreq
 
     f_log = open('run/log.txt', 'a')
 
@@ -67,7 +70,7 @@ def _create_runners(opts, train_loader, val_loader):
 
             optimizer.step()
 
-            if opts.dispfreq > 0 and (i % opts.dispfreq == 0 or i == n_train):
+            if dispfreq > 0 and (i % dispfreq == 0 or i == n_train):
                 loss_str = ' '.join(
                     LOSS_FMT.format(loss_name, loss_val.data[0])
                     for loss_name, loss_val in losses.items())
@@ -90,7 +93,8 @@ def _create_runners(opts, train_loader, val_loader):
 
             _do_tasks()
 
-        val_loss = val_loss / n_val
+        for loss_name in val_loss:
+            val_loss[loss_name] /= n_val_batches
 
         loss_str = ' '.join(LOSS_FMT.format(*loss) for loss in val_loss.items())
         disp_str = VAL_FMT.format(epoch, loss_str)
@@ -145,15 +149,11 @@ if __name__ == '__main__':
     # data
     parser.add_argument('--dataset', type=os.path.abspath,
                         default='data/dataset')
-    parser.add_argument('--images-dir', type=os.path.abspath,
-                        default='data/images_aa')
-    parser.add_argument('--nworkers', default=24, type=int)
+    parser.add_argument('--nworkers', default=4, type=int)
 
     # model
-    parser.add_argument('--max-seqlen', default=150, type=int)
-    parser.add_argument('--vocab-size', default=15000, type=int)
     parser.add_argument('--batch-size', default=128,
-                        type=lambda n: n // n_gpu * n_gpu)
+                        type=lambda n: int(n) // n_gpu * n_gpu)
 
     # training
     parser.add_argument('--lr', default=0.001, type=float)
@@ -161,7 +161,7 @@ if __name__ == '__main__':
     parser.add_argument('--resume-epoch', type=int)
 
     # output
-    parser.add_argument('--dispfreq', default=100, type=int)
+    parser.add_argument('--dispfreq', default=10, type=int)
 
     opts = parser.parse_args()
     opts.n_gpu = n_gpu

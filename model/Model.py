@@ -3,6 +3,7 @@
 import torch
 from torch import nn
 from torch.autograd import Variable
+from torch.nn import functional as nnf
 
 
 class Model(nn.Module):
@@ -11,7 +12,21 @@ class Model(nn.Module):
     def __init__(self, **unused_kwargs):
         super(Model, self).__init__()
 
-    def forward(self, inputs, **unused_kwargs):
+        self.emb = nn.Sequential(
+            nn.Linear(4, 2),
+            nn.LogSoftmax(),
+        )
+
+    def forward(self, inputs, outputs_tgt=None, **unused_kwargs):
+        outputs_preds = self.emb(inputs)
+
+        has_target = False
+        for var_name, var_val in locals().items():
+            has_target = (has_target or
+                          (var_name.endswith('_tgt') and var_val is not None))
+        if has_target:
+            outputs_loss = nnf.nll_loss(outputs_preds, outputs_tgt)
+
         preds = {}
         losses = {}
         for var_name, var in locals().items():
@@ -25,27 +40,31 @@ class Model(nn.Module):
             'preds': preds,
         }
 
-    @staticmethod
-    def create_inputs():
+    def create_inputs(self):
         """Returns a dict of tensors that this model may use as input."""
         return {
             'inputs': torch.FloatTensor(),
+            'outputs_tgt': torch.LongTensor(),
         }
 
 
-if __name__ == '__main__':
+def _test_model():
     batch_size = 2
-    opts = {
-        'debug': True,
-    }
+    debug = True
 
-    model = Model(**opts)
+    model = Model(**locals())
 
     inp = {
-        'x': torch.rand(batch_size, 3, 224, 224),
+        'inputs': torch.rand(batch_size, 4).log(),
+        'outputs_tgt': torch.LongTensor(batch_size).random_(2),
     }
     for name, tensor in inp.items():
         inp[name] = Variable(tensor)
 
-    loss = model(**inp)
-    loss.backward()
+    outputs = model(**inp)
+    if outputs['losses']:
+        sum(outputs['losses'].values()).backward()
+
+
+if __name__ == '__main__':
+    _test_model()
