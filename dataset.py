@@ -1,8 +1,5 @@
 """A Dataset that loads the dataset."""
 
-import os
-import pickle
-
 import torch
 import torch.utils.data
 
@@ -37,6 +34,7 @@ def create(*args, **kwargs):
 
 
 def _test_dataset():
+    # pylint: disable=unused-variable
     dataset = 'data/dataset'
     part = 'test'
     debug = True
@@ -44,7 +42,7 @@ def _test_dataset():
     ds_test = Dataset(**locals())
     datum = ds_test[0]
 
-    for i in np.random.permutation(len(ds_test))[:1000]:
+    for i in torch.randperm(len(ds_test))[:1000]:
         datum = ds_test[i]
 
 

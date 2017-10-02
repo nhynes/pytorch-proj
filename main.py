@@ -66,15 +66,15 @@ def _create_runners(opts, train_loader, val_loader):
 
             outputs = net(**inputs)
             losses = outputs['losses']
-            sum(map(torch.mean, losses.values()).backward()
+            sum(map(torch.mean, losses.values())).backward()
 
             optimizer.step()
 
-            if dispfreq > 0 and (i % dispfreq == 0 or i == n_train):
+            if dispfreq > 0 and (i % dispfreq == 0 or i == n_train_batches):
                 loss_str = ' '.join(
                     LOSS_FMT.format(loss_name, loss_val.data[0])
                     for loss_name, loss_val in losses.items())
-                disp_str = TRAIN_FMT.format(epoch, i, n_train, loss_str)
+                disp_str = TRAIN_FMT.format(epoch, i, n_train_batches, loss_str)
                 print(disp_str)
                 print(disp_str, file=f_log, flush=True)
 
